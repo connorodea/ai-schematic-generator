@@ -1,10 +1,10 @@
 import schemdraw
 from schemdraw import elements as elm
-from schemdraw.segments import *
-import json
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Tuple
-import numpy as np
+from typing import List, Optional, Tuple
+import json
+import math
+import os
 
 @dataclass
 class Component:
@@ -27,36 +27,48 @@ class SchematicGenerator:
         
         # Create the component based on its type
         if component.type == 'resistor':
-            elem = elm.Resistor2().label(f'{component.id}\n{component.value}')
+            elem = elm.Resistor()
         elif component.type == 'capacitor':
-            elem = elm.Capacitor2().label(f'{component.id}\n{component.value}')
+            elem = elm.Capacitor()
         elif component.type == 'inductor':
-            elem = elm.Inductor2().label(f'{component.id}\n{component.value}')
+            elem = elm.Inductor()
         elif component.type == 'diode':
-            elem = elm.Diode2().label(component.id)
+            elem = elm.Diode()
         elif component.type == 'transistor':
-            elem = elm.BjtNpn().label(component.id)
+            elem = elm.BjtNpn()
         else:
             raise ValueError(f"Unknown component type: {component.type}")
             
-        # Position and rotate the component
-        elem.at(component.position).rotate(component.rotation)
+        # Position the component
+        elem = elem.at(component.position)
+        
+        # Apply rotation if needed
+        if component.rotation != 0:
+            theta = math.radians(component.rotation)
+            direction = (math.cos(theta), math.sin(theta))
+            elem = elem.to((
+                component.position[0] + direction[0],
+                component.position[1] + direction[1]
+            ))
+            
+        # Add label
+        if component.value:
+            elem = elem.label(f'{component.id}\n{component.value}')
+        else:
+            elem = elem.label(component.id)
+            
         self.drawing.add(elem)
     
     def add_connection(self, start_component: str, end_component: str):
         """Add a wire connection between components."""
         self.connections.append((start_component, end_component))
-        
-        # Get the components' positions
         start_pos = self.components[start_component].position
         end_pos = self.components[end_component].position
-        
-        # Draw the wire
-        self.drawing.add(elm.Line().start(start_pos).end(end_pos))
+        self.drawing.add(elm.Line().at(start_pos).to(end_pos))
     
-    def from_json(self, json_data: str):
+    def from_json(self, json_str: str):
         """Load schematic from JSON description."""
-        data = json.loads(json_data)
+        data = json.loads(json_str)
         
         # Add components
         for comp in data.get('components', []):
@@ -75,4 +87,10 @@ class SchematicGenerator:
     
     def save(self, filename: str):
         """Save the schematic to a file."""
+        # Ensure file extension is .svg
+        base, ext = os.path.splitext(filename)
+        if not ext or ext.lower() != '.svg':
+            filename = base + '.svg'
+            
         self.drawing.save(filename)
+        return filename
