@@ -1,0 +1,5 @@
+anthropic>=0.7.0
+schemdraw>=0.16
+numpy>=1.24
+click>=8.0
+rich>=13.0
